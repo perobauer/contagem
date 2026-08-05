@@ -1023,11 +1023,28 @@ function npDel(id){
 function npNext(id,catId){
   const catId2=getCatIdOfItem({_id:id})||catId; const solo=isEstoqueOnly(catId2);
   if(_npActiveField==='e'&&!solo){ activateNumpad(id,'p'); return; }
-  // Usar a mesma ordem alfabética que a renderização — sortItems por categoria
+  // Usar ordem alfabética igual à renderização
   const allItems=categories.flatMap(c=>sortItems(c.items||[]));
   const idx=allItems.findIndex(i=>i._id===id);
   const next=allItems[idx+1];
-  if(next){ const nc=categories.find(c=>(c.items||[]).some(i=>i._id===next._id))?.id; toggleItem(next._id,nc); }
+  if(!next) return;
+  if(isCheckType(next)){
+    // Item check: não tem card expansível — apenas scroll e destaque visual
+    const card=document.getElementById('card-'+next._id);
+    if(card){
+      const topH=(document.querySelector('.top-bar')?.offsetHeight||56)+(document.getElementById('chip-bar')?.offsetHeight||44)+8;
+      setTimeout(()=>{
+        window.scrollTo({top:card.getBoundingClientRect().top+window.scrollY-topH, behavior:'smooth'});
+        // Piscar o card para destacar
+        card.style.outline='2.5px solid var(--md-primary)';
+        card.style.borderRadius='var(--radius-l)';
+        setTimeout(()=>{ card.style.outline=''; },1200);
+      },80);
+    }
+  } else {
+    const nc=categories.find(c=>(c.items||[]).some(i=>i._id===next._id))?.id;
+    toggleItem(next._id,nc);
+  }
 }
 
 function setCheck(id,catId,value){
