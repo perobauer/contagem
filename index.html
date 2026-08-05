@@ -553,92 +553,29 @@ function getPackInfo(item){
 // ═══════════════════════════════════════════════════════════════
 // GOOGLE SHEETS — LEITURA E ESCRITA
 // ═══════════════════════════════════════════════════════════════
-// ─── COMUNICAÇÃO COM SHEETS (JSONP — funciona em iframe/Wix) ──
-function fetchFromSheets(action, params={}){
-  return new Promise((resolve, reject)=>{
-    const cbName='_cb'+Date.now()+'_'+Math.floor(Math.random()*9999);
-    const url=new URL(CONFIG.SCRIPT_URL);
-    url.searchParams.set('action', action);
-    url.searchParams.set('callback', cbName);
-    Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,String(v)));
-
-    const timer=setTimeout(()=>{
-      cleanup();
-      reject(new Error('Timeout ao conectar com o servidor'));
-    }, 15000);
-
-    window[cbName]=(data)=>{ cleanup(); resolve(data); };
-
-    function cleanup(){
-      clearTimeout(timer);
-      delete window[cbName];
-      if(script.parentNode) script.parentNode.removeChild(script);
-    }
-
-    const script=document.createElement('script');
-    script.src=url.toString();
-    script.onerror=()=>{ cleanup(); reject(new Error('Erro de rede')); };
-    document.head.appendChild(script);
-  });
+// ─── COMUNICAÇÃO COM SHEETS ───────────────────────────────────
+async function fetchFromSheets(action, params={}){
+  const url=new URL(CONFIG.SCRIPT_URL);
+  url.searchParams.set('action', action);
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,String(v)));
+  const res=await fetch(url.toString(), {redirect:'follow'});
+  const text=await res.text();
+  // Suportar resposta JSONP ou JSON puro
+  const json=text.startsWith('test(')||text.includes('({"')
+    ? text.replace(/^[^(]+\(/, '').replace(/\);?\s*$/, '')
+    : text;
+  return JSON.parse(json);
 }
 
-function postToScript(payload){
-  return new Promise((resolve, reject)=>{
-    const cbName='_cb'+Date.now()+'_'+Math.floor(Math.random()*9999);
-    // Enviar via form POST com JSONP de resposta — único método que funciona em iframe
-    const url=new URL(CONFIG.SCRIPT_URL);
-    url.searchParams.set('callback', cbName);
-
-    const timer=setTimeout(()=>{
-      cleanup();
-      reject(new Error('Timeout ao salvar'));
-    }, 20000);
-
-    window[cbName]=(data)=>{ cleanup(); resolve(data); };
-
-    function cleanup(){
-      clearTimeout(timer);
-      delete window[cbName];
-      if(iframe.parentNode) iframe.parentNode.removeChild(iframe);
-      if(form.parentNode) form.parentNode.removeChild(form);
-    }
-
-    // Criar form invisível que faz POST e recebe resposta via JSONP
-    const iframe=document.createElement('iframe');
-    iframe.name=cbName+'_frame';
-    iframe.style.display='none';
-    document.body.appendChild(iframe);
-
-    const form=document.createElement('form');
-    form.method='POST';
-    form.action=url.toString();
-    form.target=iframe.name;
-    form.style.display='none';
-
-    const input=document.createElement('input');
-    input.type='hidden';
-    input.name='data';
-    input.value=JSON.stringify(payload);
-    form.appendChild(input);
-
-    document.body.appendChild(form);
-
-    // Para POST, o Apps Script vai retornar JSONP via redirect GET
-    // Usar abordagem alternativa: fetch com no-cors + fallback JSONP
-    fetch(CONFIG.SCRIPT_URL+'?callback='+cbName+'&action='+payload.action, {
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({...payload,callback:cbName}),
-    }).then(()=>{
-      // no-cors não retorna body — considerar sucesso e resolver após delay
-      setTimeout(()=>{ cleanup(); resolve({ok:true}); }, 1000);
-    }).catch(()=>{
-      // Fallback: submeter form
-      form.submit();
-      setTimeout(()=>{ cleanup(); resolve({ok:true}); }, 2000);
-    });
+async function postToScript(payload){
+  const res=await fetch(CONFIG.SCRIPT_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify(payload),
+    redirect:'follow',
   });
+  const text=await res.text();
+  try{ return JSON.parse(text); }catch(e){ return {ok:true}; }
 }
 
 
