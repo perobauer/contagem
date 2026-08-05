@@ -558,9 +558,11 @@ async function fetchFromSheets(action, params={}){
   const url=new URL(CONFIG.SCRIPT_URL);
   url.searchParams.set('action', action);
   Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,String(v)));
+  console.log('[Contagem] Fetch:', url.toString());
   const res=await fetch(url.toString(), {redirect:'follow'});
+  console.log('[Contagem] Resposta status:', res.status, res.type);
   const text=await res.text();
-  // Suportar resposta JSONP ou JSON puro
+  console.log('[Contagem] Resposta texto (primeiros 200 chars):', text.slice(0,200));
   const json=text.startsWith('test(')||text.includes('({"')
     ? text.replace(/^[^(]+\(/, '').replace(/\);?\s*$/, '')
     : text;
@@ -593,7 +595,9 @@ async function initApp(){
 
   try{
     setSyncBadge('loading','carregando');
+    console.log('[Contagem] Buscando dados do servidor...');
     const data=await fetchFromSheets('getData');
+    console.log('[Contagem] Dados recebidos:', data);
     DB.units=data.units||[];
     DB.categories=data.categories||[];
     DB.counts=data.counts||[];
@@ -1404,8 +1408,6 @@ function renderAdminIdeal(){
             }
             <button onclick="toggleItemType_admin('${cat.id}','${item.id}')"
               style="background:none;border:1px solid var(--md-outline);color:var(--md-on-surface-variant);cursor:pointer;font-size:12px;padding:4px 8px;border-radius:var(--radius-m);font-family:var(--sans);white-space:nowrap">${isCheck?'# Num':'✓/✗'}</button>
-            <button onclick="saveItemEdit('${cat.id}','${item.id}')"
-              style="background:var(--md-primary);color:#fff;border:none;border-radius:var(--radius-m);padding:5px 10px;font-size:12px;font-family:var(--sans);font-weight:600;cursor:pointer;white-space:nowrap">Salvar</button>
             <button onclick="adminDeleteItem('${cat.id}','${item.id}')"
               style="background:none;border:none;color:var(--md-on-surface-variant);cursor:pointer;font-size:16px;padding:4px 6px"
               onmouseover="this.style.color='var(--md-error)'" onmouseout="this.style.color='var(--md-on-surface-variant)'">🗑</button>
@@ -1436,7 +1438,31 @@ function renderAdminIdeal(){
       <button class="btn-outlined-sm" onclick="toggleAdminAddCat()">Cancelar</button>
       <button class="btn-tonal" onclick="adminCreateCat()">Criar e Salvar</button>
     </div>
+  </div>
+  <!-- Botão único de salvar todas as alterações -->
+  <div style="position:sticky;bottom:0;background:var(--md-surface);border-top:1px solid var(--md-outline-variant);padding:12px 0;margin-top:8px">
+    <button onclick="saveAllIdealEdits()"
+      style="width:100%;background:var(--md-primary);color:#fff;border:none;border-radius:var(--radius-full);font-family:var(--sans);font-size:15px;font-weight:600;padding:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      💾 Salvar todas as alterações
+    </button>
   </div>`;
+}
+
+function saveAllIdealEdits(){
+  // Percorrer todas as categorias visíveis e ler os campos editados
+  let changed=false;
+  DB.categories.forEach(cat=>{
+    (cat.items||[]).forEach(item=>{
+      const nameEl=document.getElementById('name-input-'+item.id);
+      const idealEl=document.getElementById('ideal-input-'+item.id);
+      const newName=nameEl?.value.trim();
+      const newIdeal=idealEl?parseFloat(idealEl.value)||0:item.ideal;
+      if(newName && newName!==item.name){ item.name=newName; changed=true; }
+      if(idealEl && newIdeal!==item.ideal){ item.ideal=newIdeal; changed=true; }
+    });
+  });
+  if(!changed){ showToast('Nenhuma alteração detectada'); return; }
+  saveAdminChanges({categories:DB.categories});
 }
 
 function setAdminEditArea(a){ adminEditArea=a; adminEditMode=(a==='Bar')?'semanal':'default'; renderAdminIdeal(); }
