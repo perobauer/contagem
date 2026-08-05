@@ -1023,7 +1023,8 @@ function npDel(id){
 function npNext(id,catId){
   const catId2=getCatIdOfItem({_id:id})||catId; const solo=isEstoqueOnly(catId2);
   if(_npActiveField==='e'&&!solo){ activateNumpad(id,'p'); return; }
-  const allItems=categories.flatMap(c=>c.items||[]);
+  // Usar a mesma ordem alfabética que a renderização — sortItems por categoria
+  const allItems=categories.flatMap(c=>sortItems(c.items||[]));
   const idx=allItems.findIndex(i=>i._id===id);
   const next=allItems[idx+1];
   if(next){ const nc=categories.find(c=>(c.items||[]).some(i=>i._id===next._id))?.id; toggleItem(next._id,nc); }
@@ -1037,7 +1038,7 @@ function setCheck(id,catId,value){
   if(card&&item) card.outerHTML=renderItemCard(item,catId);
   updateStats(); autoSaveProgress();
   if(rowValues[id].check!==undefined){
-    const allItems=categories.flatMap(c=>c.items||[]); const idx=allItems.findIndex(i=>i._id===id); const next=allItems[idx+1];
+    const allItems=categories.flatMap(c=>sortItems(c.items||[])); const idx=allItems.findIndex(i=>i._id===id); const next=allItems[idx+1];
     if(next){ setTimeout(()=>document.getElementById('card-'+next._id)?.scrollIntoView({behavior:'smooth',block:'center'}),120); }
   }
 }
@@ -1395,7 +1396,7 @@ function renderAdminIdeal(){
         <button onclick="moveCat(${DB.categories.indexOf(cat)},1)" ${DB.categories.indexOf(cat)===DB.categories.length-1?'disabled':''} style="background:none;border:1px solid var(--md-outline);border-radius:var(--radius-m);width:30px;height:30px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;color:var(--md-primary)">↓</button>
       </div>
       <div class="ideal-card">
-        ${(cat.items||[]).map(item=>{
+        ${sortItems(cat.items||[]).map(item=>{
           const isCheck=item.type==='check';
           return `<div class="ideal-row" id="ideal-row-${item.id}">
             <div class="ideal-row-name">
