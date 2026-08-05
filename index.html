@@ -558,15 +558,21 @@ async function fetchFromSheets(action, params={}){
   const url=new URL(CONFIG.SCRIPT_URL);
   url.searchParams.set('action', action);
   Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,String(v)));
-  console.log('[Contagem] Fetch:', url.toString());
-  const res=await fetch(url.toString(), {redirect:'follow'});
-  console.log('[Contagem] Resposta status:', res.status, res.type);
-  const text=await res.text();
-  console.log('[Contagem] Resposta texto (primeiros 200 chars):', text.slice(0,200));
-  const json=text.startsWith('test(')||text.includes('({"')
-    ? text.replace(/^[^(]+\(/, '').replace(/\);?\s*$/, '')
-    : text;
-  return JSON.parse(json);
+  // Timeout de 12 segundos
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(), 12000);
+  try{
+    const res=await fetch(url.toString(), {redirect:'follow', signal:controller.signal});
+    clearTimeout(timer);
+    const text=await res.text();
+    const json=text.startsWith('test(')||text.includes('({"')
+      ? text.replace(/^[^(]+\(/, '').replace(/\);?\s*$/, '')
+      : text;
+    return JSON.parse(json);
+  }catch(e){
+    clearTimeout(timer);
+    throw new Error(e.name==='AbortError'?'Timeout — servidor demorou demais':e.message);
+  }
 }
 
 async function postToScript(payload){
@@ -595,9 +601,7 @@ async function initApp(){
 
   try{
     setSyncBadge('loading','carregando');
-    console.log('[Contagem] Buscando dados do servidor...');
     const data=await fetchFromSheets('getData');
-    console.log('[Contagem] Dados recebidos:', data);
     DB.units=data.units||[];
     DB.categories=data.categories||[];
     DB.counts=data.counts||[];
