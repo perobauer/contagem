@@ -863,13 +863,13 @@ function renderChips(){
 function scrollToCat(id){
   setActiveChip('chip-'+id);
   const section=document.getElementById('sec-'+id); if(!section) return;
-  const topH=(document.querySelector('.top-bar')?.offsetHeight||56)+(document.getElementById('chip-bar')?.offsetHeight||44)+8;
+  const topH=(((document.querySelector(".top-bar")||{}).offsetHeight)||56)+(((document.getElementById("chip-bar")||{}).offsetHeight)||44)+8;
   window.scrollTo({top:section.getBoundingClientRect().top+window.scrollY-topH,behavior:'smooth'});
 }
 function scrollToObs(){
   setActiveChip('chip-obs');
   const section=document.getElementById('obs-section-main'); if(!section) return;
-  const topH=(document.querySelector('.top-bar')?.offsetHeight||56)+(document.getElementById('chip-bar')?.offsetHeight||44)+8;
+  const topH=(((document.querySelector(".top-bar")||{}).offsetHeight)||56)+(((document.getElementById("chip-bar")||{}).offsetHeight)||44)+8;
   window.scrollTo({top:section.getBoundingClientRect().top+window.scrollY-topH,behavior:'smooth'});
 }
 
@@ -881,7 +881,7 @@ function renderContent(){
 
   let lastClick=0;
   document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>lastClick=Date.now()));
-  const topH=(document.querySelector('.top-bar')?.offsetHeight||56)+(document.getElementById('chip-bar')?.offsetHeight||44);
+  const topH=(((document.querySelector(".top-bar")||{}).offsetHeight)||56)+(((document.getElementById("chip-bar")||{}).offsetHeight)||44);
   const obs=new IntersectionObserver(entries=>{
     if(Date.now()-lastClick<800) return;
     let best=null,bestTop=Infinity;
@@ -1004,7 +1004,7 @@ function toggleItem(id,catId){
   activateNumpad(id,'e');
   setTimeout(()=>{
     const card=document.getElementById('card-'+id); if(!card) return;
-    const topH=(document.querySelector('.top-bar')?.offsetHeight||56)+(document.getElementById('chip-bar')?.offsetHeight||44)+8;
+    const topH=(((document.querySelector(".top-bar")||{}).offsetHeight)||56)+(((document.getElementById("chip-bar")||{}).offsetHeight)||44)+8;
     window.scrollTo({top:card.getBoundingClientRect().top+window.scrollY-topH,behavior:'smooth'});
   },50);
 }
@@ -1043,7 +1043,7 @@ function npNext(id,catId){
     // Item check: não tem card expansível — apenas scroll e destaque visual
     const card=document.getElementById('card-'+next._id);
     if(card){
-      const topH=(document.querySelector('.top-bar')?.offsetHeight||56)+(document.getElementById('chip-bar')?.offsetHeight||44)+8;
+      const topH=(((document.querySelector(".top-bar")||{}).offsetHeight)||56)+(((document.getElementById("chip-bar")||{}).offsetHeight)||44)+8;
       setTimeout(()=>{
         window.scrollTo({top:card.getBoundingClientRect().top+window.scrollY-topH, behavior:'smooth'});
         // Piscar o card para destacar
@@ -1075,7 +1075,7 @@ function setCheck(id,catId,value){
         setTimeout(()=>{
           const card=document.getElementById('card-'+next._id);
           if(card){
-            const topH=(document.querySelector('.top-bar')?.offsetHeight||56)+(document.getElementById('chip-bar')?.offsetHeight||44)+8;
+            const topH=(((document.querySelector(".top-bar")||{}).offsetHeight)||56)+(((document.getElementById("chip-bar")||{}).offsetHeight)||44)+8;
             window.scrollTo({top:card.getBoundingClientRect().top+window.scrollY-topH,behavior:'smooth'});
             card.style.outline='2.5px solid var(--md-primary)';
             card.style.borderRadius='var(--radius-l)';
