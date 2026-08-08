@@ -648,14 +648,15 @@ function showSetupScreen(){
   document.querySelector('#loading-error .btn-tonal').style.display='none';
 }
 
-function showEntryScreen(){
-  // Salvar cache local
-  try{ localStorage.setItem('contagem_db_cache', JSON.stringify(DB)); }catch(e){}
+let _autoRefreshPaused=false;
 
+function showEntryScreen(){
+  try{ localStorage.setItem('contagem_db_cache', JSON.stringify(DB)); }catch(e){}
   setScreen('screen-entry');
   renderEntryScreen();
-  // Auto-refresh a cada 5 min
+  // Auto-refresh a cada 5 min — pausa quando admin está aberto
   setInterval(async()=>{
+    if(_autoRefreshPaused) return;
     try{
       const data=await fetchFromSheets('getData');
       DB.units=data.units; DB.categories=data.categories; DB.counts=data.counts;
@@ -1301,10 +1302,19 @@ async function saveItemToSheet(catId, item){
 async function saveAdminChanges(changes){
   try{
     setSyncBadge('loading','salvando');
+    // Se estiver salvando categorias, buscar dados frescos primeiro
+    // para não sobrescrever categorias de outras áreas/modos
+    if(changes.categories){
+      const fresh=await fetchFromSheets('getData');
+      const incomingIds=new Set(changes.categories.map(c=>String(c.id)));
+      // Manter categorias que não estão sendo editadas
+      const kept=(fresh.categories||[]).filter(c=>!incomingIds.has(String(c.id)));
+      changes.categories=[...kept, ...changes.categories];
+    }
     await postToScript({action:'updateData',...changes});
     setSyncBadge('ok');
     showToast('✓ Salvo na planilha');
-    // Atualizar cache
+    // Recarregar dados frescos após salvar
     const data=await fetchFromSheets('getData');
     DB.units=data.units; DB.categories=data.categories;
     try{ localStorage.setItem('contagem_db_cache',JSON.stringify(DB)); }catch(e){}
@@ -1331,9 +1341,14 @@ function closeAdminModal(){ document.getElementById('admin-modal').classList.rem
 function confirmAdmin(){
   const pwd=document.getElementById('admin-pwd').value;
   if(pwd!==ADMIN_PWD){ document.getElementById('admin-error').textContent='Senha incorreta.'; document.getElementById('admin-pwd').select(); return; }
-  closeAdminModal(); setScreen('screen-admin'); switchAdminTab('counts');
+  closeAdminModal();
+  _autoRefreshPaused=true; // pausar auto-refresh enquanto admin está aberto
+  setScreen('screen-admin'); switchAdminTab('counts');
 }
-function exitAdmin(){ setScreen(adminOrigin); }
+function exitAdmin(){
+  _autoRefreshPaused=false; // retomar auto-refresh
+  setScreen(adminOrigin);
+}
 
 function switchAdminTab(tab){
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active'));
@@ -1498,19 +1513,16 @@ function renderAdminIdeal(){
 }
 
 function saveAllIdealEdits(){
-  // Percorrer todas as categorias visíveis e ler os campos editados
-  let changed=false;
+  // Ler todos os campos editáveis da tela e atualizar DB.categories
   DB.categories.forEach(cat=>{
     (cat.items||[]).forEach(item=>{
       const nameEl=document.getElementById('name-input-'+item.id);
       const idealEl=document.getElementById('ideal-input-'+item.id);
-      const newName=nameEl?.value.trim();
-      const newIdeal=idealEl?parseFloat(idealEl.value)||0:item.ideal;
-      if(newName && newName!==item.name){ item.name=newName; changed=true; }
-      if(idealEl && newIdeal!==item.ideal){ item.ideal=newIdeal; changed=true; }
+      if(nameEl && nameEl.value.trim()) item.name=nameEl.value.trim();
+      if(idealEl) item.ideal=parseFloat(idealEl.value)||0;
     });
   });
-  if(!changed){ showToast('Nenhuma alteração detectada'); return; }
+  // Salvar sempre — sem verificar diferença
   saveAdminChanges({categories:DB.categories});
 }
 
